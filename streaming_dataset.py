@@ -3,6 +3,7 @@ import h5py
 import glob
 from typing import Iterator
 from pathlib import Path
+import torch.distributed as dist
 
 class StreamingDataset[T](torch.utils.data.IterableDataset):
     def __init__(self, path_prefix: str, debug: bool = False) -> None:
@@ -13,8 +14,20 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
 
     def __iter__(self) -> Iterator[T]:
         worker_info = torch.utils.data.get_worker_info()
-        cur = 0 if worker_info is None else worker_info.id
-        delta = 1 if worker_info is None else worker_info.num_workers
+
+        num_workers = 1 if worker_info is None else worker_info.num_workers
+        worker_id = 0 if worker_info is None else worker_info.id
+
+        if dist.is_available() and dist.is_initialized():
+            rank = dist.get_rank()
+            world_size = dist.get_world_size()
+        else:
+            rank = 0
+            world_size = 1
+        
+        cur = rank * num_workers + worker_id
+        delta = world_size * num_workers
+
         data_path = f"{self.path_prefix}_{cur}.h5"
         while Path(data_path).exists():
             with h5py.File(data_path, "r") as f:
