@@ -23,9 +23,8 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
             data_path = f"{self.path_prefix}_{cur}.h5"
 
 if __name__ == "__main__":
-
+    B = 16
     dataset = StreamingDataset(path_prefix="./data/data")
-    print(torch.utils.data.DataLoader(dataset, num_workers=2))
-    dataloader = torch.utils.data.DataLoader(dataset, num_workers=2)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=B)
     for X, y in dataloader:
-        print(X, y)
+        print(X.shape, y.shape)
