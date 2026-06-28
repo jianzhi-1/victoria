@@ -57,13 +57,14 @@ class SplitStreamingDataset[T](torch.utils.data.IterableDataset):
         self.ratios = ratios
         self.sample_type = sample_type
         self.lb, self.ub = 0., ratios[sample_type]
+        self.seed = seed
         for k, v in ratios.items():
             if k == sample_type: break
             self.lb += v
             self.ub += v
     
     def __iter__(self) -> Iterator[T]:
-        rng = np.random.default_rng(seed=seed)
+        rng = np.random.default_rng(seed=self.seed)
         for data in self.source:
             if self.lb <= rng.random() < self.ub:
                 yield data
