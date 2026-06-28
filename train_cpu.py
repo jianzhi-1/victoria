@@ -28,6 +28,7 @@ def train(B: int):
     D = 16
     NUM_EPOCHS = 10
     net = BasicNet(D)
+    net.train()
     loss_fn = nn.MSELoss()
     optimizer = torch.optim.Adam(net.parameters())
     for epoch in range(NUM_EPOCHS):
@@ -44,6 +45,7 @@ def train(B: int):
         print(f"epoch {epoch} done; avg loss {total_loss / total_n}")
 
     # Eval
+    net.eval()
     with torch.no_grad():
         total_loss = 0.
         total_n = 0
