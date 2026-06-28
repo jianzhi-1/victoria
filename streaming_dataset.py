@@ -4,10 +4,10 @@ import glob
 from typing import Iterator
 from pathlib import Path
 import torch.distributed as dist
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, DataLoader
 import numpy as np
 
-class StreamingDataset[T](torch.utils.data.IterableDataset):
+class StreamingDataset[T](IterableDataset):
     CHUNK_SIZE = 1024
 
     def __init__(self, path_prefix: str, debug: bool = False) -> None:
@@ -46,10 +46,10 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
             cur += delta
             data_path = f"{self.path_prefix}_{cur}.h5"
 
-class SplitStreamingDataset[T](torch.utils.data.IterableDataset):
+class SplitStreamingDataset[T](IterableDataset):
     EPS = 1e-8
 
-    def __init__(self, source: torch.utils.data.IterableDataset, ratios: dict[str, float], sample_type: str, seed: int) -> None:
+    def __init__(self, source: IterableDataset, ratios: dict[str, float], sample_type: str, seed: int) -> None:
         super().__init__()
         assert sample_type in ratios, [sample_type, ratios]
         assert abs(sum(ratios.values()) - 1.) < self.EPS, sum(ratios.values())
@@ -76,7 +76,7 @@ def get_splits(dataset: StreamingDataset, ratios: dict[str, float], seed: int) -
 if __name__ == "__main__":
     B = 16
     dataset = StreamingDataset(path_prefix="./data/data")
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=B)
+    dataloader = DataLoader(dataset, batch_size=B)
     # note: shuffle cannot be True
     for X, y in dataloader:
         print(X.shape, y.shape)
@@ -87,8 +87,8 @@ if __name__ == "__main__":
     }
     seed = 42
     train_dataset, eval_dataset = get_splits(dataset, ratios, seed)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=B)
-    eval_dataloader = torch.utils.data.DataLoader(eval_dataset, batch_size=B)
+    train_dataloader = DataLoader(train_dataset, batch_size=B)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=B)
 
     print("train")
     for X, y in train_dataloader:
