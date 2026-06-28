@@ -30,7 +30,7 @@ def train(B: int):
     NUM_EPOCHS = 10
     net = BasicNet(D)
     net.train()
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters())
     for epoch in range(NUM_EPOCHS):
         total_loss = 0.
