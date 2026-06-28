@@ -31,7 +31,10 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
         data_path = f"{self.path_prefix}_{cur}.h5"
         while Path(data_path).exists():
             with h5py.File(data_path, "r") as f:
-                yield from zip(f["X"][:], f["y"][:], strict=True)
+                X, y = f["X"], f["y"]
+                assert len(X) == len(y), [len(X), len(y)]
+                for i in range(len(X)):
+                    yield X[i], y[i]
             cur += delta
             data_path = f"{self.path_prefix}_{cur}.h5"
 
