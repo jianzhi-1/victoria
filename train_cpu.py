@@ -56,7 +56,7 @@ def train(setup: ExperimentSetup):
     net = BasicNet(D, 1)
     loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters())
-    for epoch in range(NUM_EPOCHS):
+    for epoch in range(1, NUM_EPOCHS + 1):
         net.train()
         total_loss = 0.
         total_n = 0
@@ -70,7 +70,7 @@ def train(setup: ExperimentSetup):
             optimizer.step()
         print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}")
 
-        if (epoch + 1) % epochs_per_eval == 0 or (epoch + 1) == NUM_EPOCHS:
+        if epoch % epochs_per_eval == 0 or epoch == NUM_EPOCHS:
             # Eval
             net.eval()
             with torch.no_grad():
@@ -83,7 +83,7 @@ def train(setup: ExperimentSetup):
                     total_n += X.shape[0]
                 print(f"[eval] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}")
         
-        if (epoch + 1) % epochs_per_checkpoint == 0:
+        if epoch % epochs_per_checkpoint == 0 or epoch == NUM_EPOCHS:
             checkpointing(
                 f"./models/checkpoint_{epoch}_{NUM_EPOCHS}_basic.pth",
                 epoch,
@@ -91,14 +91,6 @@ def train(setup: ExperimentSetup):
                 optimizer,
                 setup
             )
-
-    checkpointing(
-        f"./models/checkpoint_{NUM_EPOCHS}_{NUM_EPOCHS}_basic.pth",
-        epoch,
-        net,
-        optimizer,
-        setup
-    )
 
 if __name__ == "__main__":
     setup = ExperimentSetup(
