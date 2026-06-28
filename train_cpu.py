@@ -2,20 +2,45 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from dataclasses import dataclass, asdict
+from pathlib import Path
 
 ##### Basic imports
 from streaming_dataset import StreamingDataset, get_splits
 from basic.basic_net import BasicNet
 
+@dataclass(frozen=True)
+class ExperimentSetup:
+    num_epochs: int
+    B: int
+    epochs_per_eval: int
+    epochs_per_checkpoint: int
+    seed: int
 
-def train(B: int, epochs_per_checkpoint: int, epochs_per_eval: int):
-    torch.manual_seed(42)
+def checkpointing(
+    PATH: str | Path,
+    epoch: int,
+    net: nn.Module,
+    optimizer: torch.optim.Optimizer,
+    experiment_setup: ExperimentSetup
+) -> None:
+    to_serialize = {
+        "epoch": epoch,
+        "model": net.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "rng_state": torch.get_rng_state(),
+        "experiment_setup": asdict(experiment_setup)
+    }
+    torch.save(to_serialize, PATH)
+
+def train(setup: ExperimentSetup):
+    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint
+    torch.manual_seed(seed)
     dataset = StreamingDataset(path_prefix="./data/data")
     ratios = {
         "train": 0.7,
         "eval": 0.3
     }
-    seed = 42
     train_dataset, eval_dataset = get_splits(dataset, ratios, seed)
     train_dataloader, eval_dataloader = DataLoader(train_dataset, batch_size=B), DataLoader(eval_dataset, batch_size=B)
 
@@ -28,7 +53,6 @@ def train(B: int, epochs_per_checkpoint: int, epochs_per_eval: int):
         print(X.shape, y.shape)
 
     D = 16
-    NUM_EPOCHS = 100
     net = BasicNet(D, 1)
     loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters())
@@ -60,12 +84,31 @@ def train(B: int, epochs_per_checkpoint: int, epochs_per_eval: int):
                 print(f"[eval] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}")
         
         if (epoch + 1) % epochs_per_checkpoint == 0:
-            torch.save(net.state_dict(), f"./models/checkpoint_{epoch}_{NUM_EPOCHS}_basic.pth")
+            checkpointing(
+                f"./models/checkpoint_{epoch}_{NUM_EPOCHS}_basic.pth",
+                epoch,
+                net,
+                optimizer,
+                setup
+            )
 
-    torch.save(net.state_dict(), f"./models/checkpoint_{NUM_EPOCHS}_{NUM_EPOCHS}_basic.pth")
+    checkpointing(
+        f"./models/checkpoint_{NUM_EPOCHS}_{NUM_EPOCHS}_basic.pth",
+        epoch,
+        net,
+        optimizer,
+        setup
+    )
 
 if __name__ == "__main__":
-    train(16, 50, 10)
+    setup = ExperimentSetup(
+        100,
+        16,
+        10,
+        50,
+        42
+    )
+    train(setup)
 
 
 
