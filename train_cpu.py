@@ -8,6 +8,7 @@ from streaming_dataset import StreamingDataset, get_splits
 from basic.basic_net import BasicNet
 
 def train(B: int):
+    torch.manual_seed(42)
     dataset = StreamingDataset(path_prefix="./data/data")
     ratios = {
         "train": 0.7,
