@@ -107,6 +107,7 @@ def train(setup: ExperimentSetup):
                 epoch,
                 net,
                 optimizer,
+                lr_scheduler,
                 setup
             )
 
