@@ -6,6 +6,8 @@ from pathlib import Path
 import torch.distributed as dist
 
 class StreamingDataset[T](torch.utils.data.IterableDataset):
+    CHUNK_SIZE = 1024
+
     def __init__(self, path_prefix: str, debug: bool = False) -> None:
         super().__init__()
         self.path_prefix = path_prefix
@@ -29,13 +31,12 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
         delta = world_size * num_workers
 
         data_path = f"{self.path_prefix}_{cur}.h5"
-        CHUNK_SIZE = 1024
         while Path(data_path).exists():
             with h5py.File(data_path, "r") as f:
                 X, y = f["X"], f["y"]
                 assert len(X) == len(y), [len(X), len(y)]
-                for chunk_start in range(0, len(X), CHUNK_SIZE):
-                    chunk_end = min(len(X), chunk_start + CHUNK_SIZE)
+                for chunk_start in range(0, len(X), self.CHUNK_SIZE):
+                    chunk_end = min(len(X), chunk_start + self.CHUNK_SIZE)
                     X_chunk = X[chunk_start:chunk_end]
                     y_chunk = y[chunk_start:chunk_end]
                     for Xp, yp in zip(X_chunk, y_chunk, strict=True):
