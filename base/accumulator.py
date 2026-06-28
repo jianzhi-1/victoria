@@ -16,10 +16,14 @@ class Accumulator:
     
     def clear(self) -> None:
         self.storage.clear()
+        self.rs = 0.
+        self.w = 0
+        self.sorted = False
 
     def sort(self) -> None:
         if self.sorted: return
         self.storage.sort()
+        self.sorted = True
 
     def quantile(self, p: float | Sequence[float]) -> tuple[float, ...]:
         self.sort()

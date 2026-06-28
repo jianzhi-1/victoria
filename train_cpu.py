@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from dataclasses import dataclass, asdict
 from pathlib import Path
+from torch.optim.lr_scheduler import CosineAnnealingLR
 import datetime
 
 ##### Basic imports
@@ -18,6 +19,7 @@ class ExperimentSetup:
     epochs_per_eval: int
     epochs_per_checkpoint: int
     seed: int
+    lr: float
     max_gradient_norm: float = float("inf")
 
 def checkpointing(
@@ -25,19 +27,21 @@ def checkpointing(
     epoch: int,
     net: nn.Module,
     optimizer: torch.optim.Optimizer,
+    lr_scheduler: torch.optim.lr_scheduler.LRScheduler,
     experiment_setup: ExperimentSetup
 ) -> None:
     to_serialize = {
         "epoch": epoch,
         "model": net.state_dict(),
         "optimizer": optimizer.state_dict(),
+        "lr_scheduler": lr_scheduler.state_dict(),
         "rng_state": torch.get_rng_state(),
         "experiment_setup": asdict(experiment_setup)
     }
     torch.save(to_serialize, PATH)
 
 def train(setup: ExperimentSetup):
-    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint, max_gradient_norm = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint, setup.max_gradient_norm
+    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint, max_gradient_norm, lr = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint, setup.max_gradient_norm, setup.lr
     torch.manual_seed(seed)
     dataset = StreamingDataset(path_prefix="./data/data")
     ratios = {
@@ -58,8 +62,9 @@ def train(setup: ExperimentSetup):
     D = 16
     net = BasicNet(D, 1)
     loss_fn = nn.MSELoss(reduction="sum")
-    optimizer = torch.optim.Adam(net.parameters())
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     grad_norm_acc = Accumulator()
+    lr_scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
     for epoch in range(1, NUM_EPOCHS + 1):
         grad_norm_acc.clear()
         net.train()
@@ -79,7 +84,9 @@ def train(setup: ExperimentSetup):
             gradient_norm: float = raw_gradient_norm.item() / X.shape[0]
             grad_norm_acc.push(gradient_norm)
             optimizer.step()
-        print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}; grad_norm_mean {grad_norm_acc.mean()}; grad_norm_p95 {grad_norm_acc.quantile(0.95)}")
+        current_lr = optimizer.param_groups[0]["lr"]
+        lr_scheduler.step()
+        print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}; grad_norm_mean {grad_norm_acc.mean()}; grad_norm_p95 {grad_norm_acc.quantile(0.95)}; lr {current_lr}")
 
         if epoch % epochs_per_eval == 0 or epoch == NUM_EPOCHS:
             # Eval
@@ -109,7 +116,8 @@ if __name__ == "__main__":
         16,
         10,
         50,
-        42
+        42,
+        1e-3
     )
     train(setup)
 
