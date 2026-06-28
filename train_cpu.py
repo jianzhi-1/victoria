@@ -4,10 +4,12 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from dataclasses import dataclass, asdict
 from pathlib import Path
+import datetime
 
 ##### Basic imports
 from streaming_dataset import StreamingDataset, get_splits
 from basic.basic_net import BasicNet
+from base.accumulator import Accumulator
 
 @dataclass(frozen=True)
 class ExperimentSetup:
@@ -16,6 +18,7 @@ class ExperimentSetup:
     epochs_per_eval: int
     epochs_per_checkpoint: int
     seed: int
+    max_gradient_norm: float = float("inf")
 
 def checkpointing(
     PATH: str | Path,
@@ -34,7 +37,7 @@ def checkpointing(
     torch.save(to_serialize, PATH)
 
 def train(setup: ExperimentSetup):
-    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint
+    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint, max_gradient_norm = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint, setup.max_gradient_norm
     torch.manual_seed(seed)
     dataset = StreamingDataset(path_prefix="./data/data")
     ratios = {
@@ -56,7 +59,9 @@ def train(setup: ExperimentSetup):
     net = BasicNet(D, 1)
     loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters())
+    grad_norm_acc = Accumulator()
     for epoch in range(1, NUM_EPOCHS + 1):
+        grad_norm_acc.clear()
         net.train()
         total_loss = 0.
         total_n = 0
@@ -67,8 +72,14 @@ def train(setup: ExperimentSetup):
             total_loss += loss.item()
             total_n += X.shape[0]
             loss.backward()
+            raw_gradient_norm = nn.utils.clip_grad_norm_(
+                net.parameters(),
+                max_norm=max_gradient_norm * X.shape[0]
+            )
+            gradient_norm: float = raw_gradient_norm.item() / X.shape[0]
+            grad_norm_acc.push(gradient_norm)
             optimizer.step()
-        print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}")
+        print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {total_loss / total_n}; grad_norm_mean {grad_norm_acc.mean()}; grad_norm_p95 {grad_norm_acc.quantile(0.95)}")
 
         if epoch % epochs_per_eval == 0 or epoch == NUM_EPOCHS:
             # Eval
