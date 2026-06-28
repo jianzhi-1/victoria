@@ -29,12 +29,17 @@ class StreamingDataset[T](torch.utils.data.IterableDataset):
         delta = world_size * num_workers
 
         data_path = f"{self.path_prefix}_{cur}.h5"
+        CHUNK_SIZE = 1024
         while Path(data_path).exists():
             with h5py.File(data_path, "r") as f:
                 X, y = f["X"], f["y"]
                 assert len(X) == len(y), [len(X), len(y)]
-                for i in range(len(X)):
-                    yield X[i], y[i]
+                for chunk_start in range(0, len(X), CHUNK_SIZE):
+                    chunk_end = min(len(X), chunk_start + CHUNK_SIZE)
+                    X_chunk = X[chunk_start:chunk_end]
+                    y_chunk = y[chunk_start:chunk_end]
+                    for Xp, yp in zip(X_chunk, y_chunk, strict=True):
+                        yield Xp, yp
             cur += delta
             data_path = f"{self.path_prefix}_{cur}.h5"
 
