@@ -28,7 +28,7 @@ def train(B: int):
 
     D = 16
     NUM_EPOCHS = 10
-    net = BasicNet(D)
+    net = BasicNet(D, 1)
     net.train()
     loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters())
@@ -58,8 +58,6 @@ def train(B: int):
         print(f"validation done; avg loss {total_loss / total_n}")
     
     torch.save(net.state_dict(), "./models/basic.pth")
-    
-    # train test split
 
 if __name__ == "__main__":
     train(16)

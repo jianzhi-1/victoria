@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class BasicNet(nn.Module):
-    def __init__(self, D: int) -> None:
+    def __init__(self, D: int, O: int) -> None:
         super().__init__()
         self.D = D
         self.net = nn.Sequential(
@@ -11,7 +11,7 @@ class BasicNet(nn.Module):
             nn.SiLU(),
             nn.Linear(D, D),
             nn.SiLU(),
-            nn.Linear(D, D)
+            nn.Linear(D, O)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
