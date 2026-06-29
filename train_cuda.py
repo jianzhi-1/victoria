@@ -83,83 +83,77 @@ def train(setup: ExperimentSetup):
     grad_norm_acc = Accumulator()
     lr_scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS)
     for epoch in range(1, NUM_EPOCHS + 1):
-        nvtx.range_push(f"epoch {epoch}/{NUM_EPOCHS}")
-        grad_norm_acc.clear()
-        net.train()
-        total_loss = 0.
-        total_n = 0
+        with nvtx.range(f"epoch {epoch}/{NUM_EPOCHS}"):
+            grad_norm_acc.clear()
+            net.train()
+            total_loss = 0.
+            total_n = 0
 
-        nvtx.range_push("train")
-        with net.join():
-            for X, y in train_dataloader:
-                nvtx.range_push("step")
+            with nvtx.range("train"):
+                with net.join():
+                    for X, y in train_dataloader:
+                        with nvtx.range("step"):
+                            X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
+                            optimizer.zero_grad()
 
-                optimizer.zero_grad()
+                            with nvtx.range("forward"):
+                                yhat = net(X)
+                                loss = loss_fn(yhat, y)
 
-                nvtx.range_push("forward")
-                yhat = net(X)
-                loss = loss_fn(yhat, y)
-                nvtx.range_pop()
+                            total_loss += loss.item()
+                            total_n += X.shape[0]
 
-                total_loss += loss.item()
-                total_n += X.shape[0]
+                            with nvtx.range("backward"):
+                                loss.backward()
 
-                nvtx.range_push("backward")
-                loss.backward()
-                nvtx.range_pop()
+                            raw_gradient_norm = nn.utils.clip_grad_norm_(
+                                net.parameters(),
+                                max_norm=max_gradient_norm * X.shape[0]
+                            )
+                            gradient_norm: float = raw_gradient_norm.item() / X.shape[0]
+                            grad_norm_acc.push(gradient_norm)
 
-                raw_gradient_norm = nn.utils.clip_grad_norm_(
-                    net.parameters(),
-                    max_norm=max_gradient_norm * X.shape[0]
+                            with nvtx.range("opt_step"):
+                                optimizer.step()
+
+
+            current_lr = optimizer.param_groups[0]["lr"]
+            lr_scheduler.step()
+
+            epoch_loss = d_reduce(total_loss, device, dist.ReduceOp.SUM)
+            epoch_n = d_reduce(total_n, device, dist.ReduceOp.SUM)
+            if is_main:
+                # TODO: currently grad_norm_acc is rank-local; make it consistent across ranks.
+                print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {epoch_loss / epoch_n}; grad_norm_mean {grad_norm_acc.mean()}; grad_norm_p95 {grad_norm_acc.quantile(0.95)}; lr {current_lr}")
+
+            if epoch % epochs_per_eval == 0 or epoch == NUM_EPOCHS:
+                # Eval
+                with nvtx.range("eval"):
+                    net.eval()
+                    with torch.no_grad():
+                        total_loss = 0.
+                        total_n = 0
+                        for X, y in eval_dataloader:
+                            X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
+                            yhat = net(X)
+                            loss = loss_fn(yhat, y)
+                            total_loss += loss.item()
+                            total_n += X.shape[0]
+                        
+                        eval_loss = d_reduce(total_loss, device, dist.ReduceOp.SUM)
+                        eval_n = d_reduce(total_n, device, dist.ReduceOp.SUM)
+                        if is_main:
+                            print(f"[eval] {epoch}/{NUM_EPOCHS}: avg loss {eval_loss / eval_n}")
+
+            if is_main and (epoch % epochs_per_checkpoint == 0 or epoch == NUM_EPOCHS):
+                checkpointing(
+                    f"./models/checkpoint_{epoch}_{NUM_EPOCHS}_basic.pth",
+                    epoch,
+                    net,
+                    optimizer,
+                    lr_scheduler,
+                    setup
                 )
-                gradient_norm: float = raw_gradient_norm.item() / X.shape[0]
-                grad_norm_acc.push(gradient_norm)
-
-                nvtx.range_push("opt_step")
-                optimizer.step()
-                nvtx.range_pop()
-
-                nvtx.range_pop()
-        nvtx.range_pop()
-
-        current_lr = optimizer.param_groups[0]["lr"]
-        lr_scheduler.step()
-
-        epoch_loss = d_reduce(total_loss, device, dist.ReduceOp.SUM)
-        epoch_n = d_reduce(total_n, device, dist.ReduceOp.SUM)
-        if is_main:
-            print(f"[train] {epoch}/{NUM_EPOCHS}: avg loss {epoch_loss / epoch_n}; grad_norm_mean {grad_norm_acc.mean()}; grad_norm_p95 {grad_norm_acc.quantile(0.95)}; lr {current_lr}")
-
-        if epoch % epochs_per_eval == 0 or epoch == NUM_EPOCHS:
-            # Eval
-            nvtx.range_push("eval")
-            net.eval()
-            with torch.no_grad():
-                total_loss = 0.
-                total_n = 0
-                for X, y in eval_dataloader:
-                    X, y = X.to(device, non_blocking=True), y.to(device, non_blocking=True)
-                    yhat = net(X)
-                    loss = loss_fn(yhat, y)
-                    total_loss += loss.item()
-                    total_n += X.shape[0]
-                
-                eval_loss = d_reduce(total_loss, device, dist.ReduceOp.SUM)
-                eval_n = d_reduce(total_n, device, dist.ReduceOp.SUM)
-                if is_main:
-                    print(f"[eval] {epoch}/{NUM_EPOCHS}: avg loss {eval_loss / eval_n}")
-            nvtx.range_pop()
-
-        if is_main and epoch % epochs_per_checkpoint == 0 or epoch == NUM_EPOCHS:
-            checkpointing(
-                f"./models/checkpoint_{epoch}_{NUM_EPOCHS}_basic.pth",
-                epoch,
-                net,
-                optimizer,
-                lr_scheduler,
-                setup
-            )
-        nvtx.range_pop()
     
     dist.destroy_process_group()
 
