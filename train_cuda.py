@@ -63,7 +63,8 @@ def train(setup: ExperimentSetup):
         "eval": 0.3
     }
     train_dataset, eval_dataset = get_splits(dataset, ratios, seed)
-    train_dataloader, eval_dataloader = DataLoader(train_dataset, batch_size=B), DataLoader(eval_dataset, batch_size=B)
+    train_dataloader = DataLoader(train_dataset, batch_size=B)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=B)
 
     if is_main:
         print("train")
