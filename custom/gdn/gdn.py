@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class GDN(nn.Module):
     def __init__(self, D: int, DV: int, DK: int) -> None:
@@ -20,13 +19,14 @@ class GDN(nn.Module):
         assert prev_S.shape == (B, self.DV, self.DK), [prev_S.shape, (B, self.DV, self.DK)]
         Q, K, V = self.Wq(x), self.Wk(x), self.Wv(x)
 
-        alpha = torch.sigmoid(self.Wa(x))
-        beta = torch.sigmoid(self.Wb(x))
-        S = torch.einsum("bc,bvk->bvk", alpha, prev_S) - torch.einsum("bc,bvk->bvk", alpha * beta, (torch.einsum("bv,bk->bvk", torch.einsum("bvk,bk->bv", prev_S, K), K))) + torch.einsum("bc,bvk->bvk", beta, torch.einsum("bv,bk->bvk", V, K))
+        alpha = torch.sigmoid(self.Wa(x)).view(B, 1, 1)
+        beta = torch.sigmoid(self.Wb(x)).view(B, 1, 1)
+        S = alpha * prev_S - alpha * beta * torch.einsum("bv,bk->bvk", torch.einsum("bvk,bk->bv", prev_S, K), K) + beta * torch.einsum("bv,bk->bvk", V, K)
         out = torch.einsum("bvk,bk->bv", S, Q)
         return out, S
 
 if __name__ == "__main__":
+    torch.manual_seed(42)
     B = 16
     DV = 32
     D = 8
