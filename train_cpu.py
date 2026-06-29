@@ -16,6 +16,8 @@ from base.accumulator import Accumulator
 class ExperimentSetup:
     num_epochs: int
     B: int
+    D: int
+    H: int
     epochs_per_eval: int
     epochs_per_checkpoint: int
     seed: int
@@ -41,7 +43,7 @@ def checkpointing(
     torch.save(to_serialize, PATH)
 
 def train(setup: ExperimentSetup):
-    B, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint, max_gradient_norm, lr = setup.B, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint, setup.max_gradient_norm, setup.lr
+    B, D, H, seed, NUM_EPOCHS, epochs_per_eval, epochs_per_checkpoint, max_gradient_norm, lr = setup.B, setup.D, setup.H, setup.seed, setup.num_epochs, setup.epochs_per_eval, setup.epochs_per_checkpoint, setup.max_gradient_norm, setup.lr
     torch.manual_seed(seed)
     dataset = StreamingDataset(path_prefix="./data/data")
     ratios = {
@@ -59,8 +61,7 @@ def train(setup: ExperimentSetup):
     for X, y in eval_dataloader:
         print(X.shape, y.shape)
 
-    D = 16
-    net = BasicNet(D, 1)
+    net = BasicNet(D, H, 1)
     loss_fn = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.Adam(net.parameters(), lr=lr)
     grad_norm_acc = Accumulator()
@@ -115,6 +116,8 @@ if __name__ == "__main__":
     setup = ExperimentSetup(
         100,
         16,
+        16,
+        256,
         10,
         50,
         42,
