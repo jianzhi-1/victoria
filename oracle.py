@@ -15,7 +15,7 @@ class OracleNet(nn.Module):
             nn.Linear(D, 1)
         )
     
-    def forward(self, x: nn.Tensor) -> nn.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, _ = x.shape
         assert x.shape == (B, self.D), [x.shape, (B, self.D)]
         return self.net(x)
