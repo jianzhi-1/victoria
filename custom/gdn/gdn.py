@@ -3,6 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class GDN(nn.Module):
+    """
+    As a reminder:
+    - S ∈ R^{dv, dk} = Sum vi ki^T; represents memory
+    - The hope is that ki, kj are near-orthogonal for i != j.
+    - Sq represents value retrieved by querying q.
+    """
+
     def __init__(self, D: int, DV: int, DK: int) -> None:
         super().__init__()
         self.D = D
@@ -15,6 +22,14 @@ class GDN(nn.Module):
         self.Wv = nn.Linear(D, DV)
 
     def forward(self, x: torch.Tensor, prev_S: torch.Tensor, mask: torch.Tensor | None = None) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        In Maths:
+        - S_t = alpha_t * (S_{t - 1} - beta_t * S_{t - 1} k_t k_t^T) + beta_t * v_t k_t^T
+        - Bracketed part of first term represents the subtraction part of the delta rule.
+        - Second term represents the addition part of the delta rule.
+        - Alpha_t represents the retention gate.
+        - Beta_t represents the update gate.
+        """
         B, _ = x.shape
         assert x.shape == (B, self.D), [x.shape, (B, self.D)]
         assert prev_S.shape == (B, self.DV, self.DK), [prev_S.shape, (B, self.DV, self.DK)]
