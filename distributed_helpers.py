@@ -6,8 +6,17 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class DDPInfo:
     rank: int
+    """
+    The global ID of the process in range [0, `world_size`].
+    """
     world_size: int
+    """
+    The number of processes in the world.
+    """
     local_rank: int
+    """
+    The local (i.e. in the current node) ID of the process.
+    """
     device: torch.device
 
     def unpack(self) -> tuple[int, int, int, torch.device]:
