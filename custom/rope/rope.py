@@ -3,6 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class RoPE(nn.Module):
+    """
+    Given x_t in R^D, partitions x_t into groups of 2, indexed by 0, ..., d/2 - 1.
+    Group i is multiplied by the rotation matrix of angle theta = t / (theta ** (2 * i / D)).
+
+    Intuition is:
+    - Across feature dimension, exponentially decreasing angular velocity.
+    - Across sequence position, linearly increasing angular velocity:
+        - R(m)^TR(n) = R(-m)R(n) = R(n - m).
+    """
     def __init__(self, D: int, theta: float = 10000, MAX_SEQ_LEN: int = 4096) -> None:
         super().__init__()
         assert D % 2 == 0, D
