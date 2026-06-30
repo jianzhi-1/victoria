@@ -1,0 +1,3 @@
+[submodule "custom/crococuda"]
+	path = custom/crococuda
+	url = git@github.com:jianzhi-1/crococuda.git
