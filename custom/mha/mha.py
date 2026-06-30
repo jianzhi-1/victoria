@@ -33,7 +33,9 @@ class MHA(nn.Module):
         if kv_cache is not None:
             kv_cache.append(preK, preV)
 
+        mask = torch.triu(torch.fill(torch.zeros(size=(Q.shape[-2], K.shape[-2])), -float("inf")), diagonal=(1 + K.shape[-2] - Q.shape[-2]))
         qkt = torch.einsum("bnsd,bntd->bnst", Q, K) / (self.d ** 0.5)
+        qkt += mask
         alpha = F.softmax(qkt, dim=-1)
         att = torch.einsum("bnst,bntd->bsnd", alpha, V).contiguous().view(B, S, self.H)
         out = self.Wo(att)
