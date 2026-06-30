@@ -17,7 +17,6 @@ class MHA(nn.Module):
         self.Wo = nn.Linear(H, D)
 
     def forward(self, x: torch.Tensor, kv_cache: KvCache | None) -> torch.Tensor:
-        # TODO: add masking
         B, S, _ = x.shape
         assert x.shape == (B, S, self.D), [x.shape, (B, S, self.D)]
 
@@ -33,8 +32,11 @@ class MHA(nn.Module):
         if kv_cache is not None:
             kv_cache.append(preK, preV)
 
-        mask = torch.triu(torch.fill(torch.zeros(size=(Q.shape[-2], K.shape[-2])), -float("inf")), diagonal=(1 + K.shape[-2] - Q.shape[-2]))
         qkt = torch.einsum("bnsd,bntd->bnst", Q, K) / (self.d ** 0.5)
+        mask = torch.triu(
+            qkt.new_full((Q.shape[-2], K.shape[-2]), -float("inf")),
+            diagonal=(1 + K.shape[-2] - Q.shape[-2])
+        )
         qkt += mask
         alpha = F.softmax(qkt, dim=-1)
         att = torch.einsum("bnst,bntd->bsnd", alpha, V).contiguous().view(B, S, self.H)
