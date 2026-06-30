@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from custom.kv.kv import KvCache
 
 class MHA(nn.Module):
     def __init__(self, D: int, H: int, N: int) -> None:
@@ -15,14 +16,23 @@ class MHA(nn.Module):
         self.Wv = nn.Linear(D, H)
         self.Wo = nn.Linear(H, D)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, kv_cache: KvCache | None) -> torch.Tensor:
         # TODO: add masking
         # TODO: add decode mechanisms
         B, S, _ = x.shape
         assert x.shape == (B, S, self.D), [x.shape, (B, S, self.D)]
+
         Q = self.Wq(x).view(B, S, self.N, self.d).transpose(1, 2)
-        K = self.Wk(x).view(B, S, self.N, self.d).transpose(1, 2)
-        V = self.Wv(x).view(B, S, self.N, self.d).transpose(1, 2)
+
+        preK = self.Wk(x).view(B, S, self.N, self.d).transpose(1, 2)
+        preV = self.Wv(x).view(B, S, self.N, self.d).transpose(1, 2)
+        if kv_cache is not None and kv_cache.K is not None and kv_cache.V is not None:
+            K = torch.cat([kv_cache.K, preK], dim=-2)
+            V = torch.cat([kv_cache.V, preV], dim=-2)
+        else:
+            K, V = preK, preV
+        if kv_cache is not None:
+            kv_cache.append(preK, preV)
 
         qkt = torch.einsum("bnsd,bntd->bnst", Q, K) / (self.d ** 0.5)
         alpha = F.softmax(qkt, dim=-1)
@@ -40,4 +50,4 @@ if __name__ == "__main__":
     S = 1024
     x = torch.randn(size=(B, S, D))
     net = MHA(D, H, N)
-    print(net(x).shape)
+    print(net(x, KvCache()).shape)
