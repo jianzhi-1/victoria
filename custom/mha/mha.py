@@ -18,7 +18,6 @@ class MHA(nn.Module):
 
     def forward(self, x: torch.Tensor, kv_cache: KvCache | None) -> torch.Tensor:
         # TODO: add masking
-        # TODO: add decode mechanisms
         B, S, _ = x.shape
         assert x.shape == (B, S, self.D), [x.shape, (B, S, self.D)]
 
@@ -50,4 +49,6 @@ if __name__ == "__main__":
     S = 1024
     x = torch.randn(size=(B, S, D))
     net = MHA(D, H, N)
-    print(net(x, KvCache()).shape)
+    out = net(x, KvCache())
+    print(out.shape)
+    print(out)
