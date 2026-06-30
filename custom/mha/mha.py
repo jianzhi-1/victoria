@@ -45,6 +45,7 @@ class MHA(nn.Module):
         return out
     
 if __name__ == "__main__":
+    # TODO: please improve tests.
     torch.manual_seed(42)
     B = 16
     D = 256
