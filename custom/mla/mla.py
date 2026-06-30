@@ -3,6 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class MLA(nn.Module):
+    """
+    Key idea: compress K and V into R^Dc, decompress when needed.
+    KV cache memory scales O(Dc * S).
+
+    NOTE: N, d are independent of D, Dc.
+    """
     def __init__(self, D: int, Dc: int, N: int, d: int) -> None:
         super().__init__()
         self.N = N
