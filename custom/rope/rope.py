@@ -57,10 +57,11 @@ if __name__ == "__main__":
             [np.sin(t), np.cos(t)]
         ])
 
-    rope_x = np.array([
+    rope_x = np.expand_dims(np.array([
         np.concatenate([rotation_matrix(s, d, D) @ np.array([v[d], v[d + 1]]) for d in range(0, len(v), 2) ], axis=0)
         for s, v in enumerate(x)
-    ])
+    ]), axis=0)
     expected = torch.as_tensor(rope_x)
     actual = RoPE(4)(torch.as_tensor(x).unsqueeze(0))
+    assert expected.shape == actual.shape, [expected.shape, actual.shape]
     assert torch.allclose(expected, actual), (expected - actual).abs().max().item()
