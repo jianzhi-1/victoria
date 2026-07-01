@@ -16,7 +16,7 @@ class MHA(nn.Module):
         self.Wv = nn.Linear(D, H)
         self.Wo = nn.Linear(H, D)
 
-    def forward(self, x: torch.Tensor, kv_cache: KvCache | None) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, kv_cache: KvCache | None = None) -> torch.Tensor:
         B, S, _ = x.shape
         assert x.shape == (B, S, self.D), [x.shape, (B, S, self.D)]
 
