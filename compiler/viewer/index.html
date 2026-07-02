@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Torch Compile Variants</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Torch Compile Variants</h1>
+          <p>Paste stdout from <code>python3 -m compiler.visualizer</code> or load a saved text file.</p>
+        </div>
+        <label class="file-button">
+          Load File
+          <input id="file-input" type="file" accept=".txt,.log,text/plain">
+        </label>
+      </header>
+
+      <section class="input-panel">
+        <textarea id="raw-output" spellcheck="false" placeholder="new variant!&#10;&#10;def forward(...):&#10;    ...&#10;==GUARDS==&#10;85&#10;Name: ..."></textarea>
+        <div class="actions">
+          <button id="parse-button" type="button">Parse Output</button>
+          <button id="clear-button" type="button">Clear</button>
+          <span id="parse-status" role="status"></span>
+        </div>
+      </section>
+
+      <section class="stats" aria-label="Run summary">
+        <div>
+          <span class="stat-label">Variants</span>
+          <strong id="variant-count">0</strong>
+        </div>
+        <div>
+          <span class="stat-label">Guards</span>
+          <strong id="guard-count">0</strong>
+        </div>
+        <div>
+          <span class="stat-label">Code Lines</span>
+          <strong id="code-line-count">0</strong>
+        </div>
+      </section>
+
+      <section id="variants" class="variants" aria-label="Compiled variants"></section>
+    </main>
+
+    <template id="variant-template">
+      <article class="variant">
+        <button class="variant-summary" type="button" aria-expanded="false">
+          <span class="chevron">›</span>
+          <span class="variant-title"></span>
+          <span class="variant-meta"></span>
+        </button>
+        <div class="variant-body" hidden>
+          <div class="toolbar">
+            <label>
+              Guard
+              <select class="guard-select"></select>
+            </label>
+            <button class="code-toggle" type="button" aria-expanded="false">Show Code</button>
+          </div>
+          <pre class="guard-detail"></pre>
+          <pre class="code-block" hidden></pre>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

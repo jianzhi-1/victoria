@@ -18,8 +18,8 @@ def guard_export_fn(
 ) -> None:
     print("==GUARDS==")
     print(len(guards))
-    # for guard in guards:
-    #     print(guard)
+    for guard in guards:
+        print(guard)
 
 if __name__ == "__main__":
     torch.manual_seed(42)
